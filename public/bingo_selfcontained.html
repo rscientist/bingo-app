@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo 000–999</title>
+<style>
+:root { --accent: #ffcc00; --ok: #2e7d32; --warn: #d32f2f; }
+* { box-sizing: border-box; }
+body { margin:0; font-family: Arial, sans-serif; background:#f6f7fb; color:#222; }
+header { background: var(--accent); padding:12px; text-align:center; }
+h1 { margin:0; font-size:22px; }
+.prices { display:flex; gap:16px; justify-content:center; font-weight:600; margin-top:6px; }
+main { max-width:1100px; margin:0 auto; padding:12px; }
+.controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+.controls button { padding:10px 14px; border:0; border-radius:12px; background: var(--accent); font-weight:700; cursor:pointer; }
+.controls .secondary { background:#e0e0e0; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(60px,1fr)); gap:6px; }
+.cell { background:white; border:1px solid #ddd; border-radius:12px; padding:10px 0; text-align:center; font-weight:700; cursor:pointer; user-select:none; transition: transform 0.05s ease, background 0.2s; }
+.cell:hover { transform: translateY(-1px); }
+.cell.selected { background:#c8e6c9; border-color:#9ccc9c; }
+.selection { margin-top:10px; padding:10px; background:white; border:1px solid #eee; border-radius:12px; }
+#selectedList { font-family: monospace; }
+.modal { position:fixed; inset:0; background: rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; }
+.hidden { display:none; }
+.modal-content { background:white; width:min(560px,92vw); border-radius:16px; padding:18px; position:relative; }
+.close { position:absolute; right:12px; top:6px; font-size:28px; cursor:pointer; }
+.kv { display:grid; grid-template-columns:140px 1fr; gap:6px; margin-top:10px; font-family: monospace; }
+.qrBox { border:2px dashed #bbb; border-radius:12px; padding:10px; text-align:center; }
+.note { margin-top:8px; font-size:14px; color:#555; }
+.countdown { margin-top:10px; font-weight:700; color:#333; }
+.field { display:flex; flex-direction:column; gap:4px; }
+.field label { font-size:14px; }
+.field input { padding:8px 10px; border:1px solid #ccc; border-radius:10px; }
+.radio-row { display:flex; gap:12px; }
+.btn { padding:10px 14px; border:0; border-radius:12px; background: var(--accent); font-weight:700; cursor:pointer; }
+.btn.secondary { background:#e0e0e0; }
+</style>
+</head>
+<body>
+<header>
+<h1>Bingo 000–999</h1>
+<div class="prices">
+<span>Nequi: $20.000 COP</span>
+<span>Pix: R$30,00 BRL</span>
+<span>Zelle: $5 USD</span>
+</div>
+</header>
+<main>
+<div class="controls">
+<button id="choosePayBtn">Choose payment</button>
+<button id="clearSelectionBtn" class="secondary">Clear selection</button>
+</div>
+<div id="grid" class="grid"></div>
+<div class="selection">
+<h3>Selected:</h3>
+<div id="selectedList">None</div>
+</div>
+</main>
+
+<!-- Payment Method + Buyer Info Modal -->
+<div id="payerModal" class="modal hidden">
+<div class="modal-content">
+<span id="payerClose" class="close">×</span>
+<h2>Checkout</h2>
+<div class="kv">
+<div>Numbers:</div><div id="payerNums">–</div>
+</div>
+<div style="margin-top:10px; display:grid; gap:10px;">
+<div class="field">
+<label for="firstName">First Name / Nombre / Nome</label>
+<input id="firstName" placeholder="e.g., Juan / João" />
+</div>
+<div class="field">
+<label for="lastName">Last Name / Apellido / Sobrenome</label>
+<input id="lastName" placeholder="e.g., Pérez / Silva" />
+</div>
+<div class="field">
+<label for="email">Email</label>
+<input id="email" type="email" placeholder="you@example.com" />
+</div>
+<div class="field">
+<label>Payment method</label>
+<div class="radio-row">
+<label><input type="radio" name="paymethod" value="nequi" checked /> Nequi (COP 20,000)</label>
+<label><input type="radio" name="paymethod" value="pix" /> Pix (BRL 30,00)</label>
+<label><input type="radio" name="paymethod" value="zelle" /> Zelle (USD 5)</label>
+</div>
+</div>
+<div style="display:flex; gap:8px; justify-content:flex-end;">
+<button id="cancelPayer" class="btn secondary">Cancel</button>
+<button id="confirmPayer" class="btn">Reserve & Continue</button>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+const gridEl = document.getElementById('grid');
+const selectedListEl = document.getElementById('selectedList');
+const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+const choosePayBtn = document.getElementById('choosePayBtn');
+
+const payerModal = document.getElementById('payerModal');
+const payerClose = document.getElementById('payerClose');
+const payerNums = document.getElementById('payerNums');
+const firstNameEl = document.getElementById('firstName');
+const lastNameEl = document.getElementById('lastName');
+const emailEl = document.getElementById('email');
+const cancelPayerBtn = document.getElementById('cancelPayer');
+const confirmPayerBtn = document.getElementById('confirmPayer');
+
+let selected = new Set();
+
+function fmt(n){ return n.toString().padStart(3,'0'); }
+
+function renderGrid() {
+gridEl.innerHTML = '';
+for(let i=0;i<=999;i++){
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.textContent = fmt(i);
+    if(selected.has(i)) cell.classList.add('selected');
+    cell.addEventListener('click',()=>{
+        if(selected.has(i)) selected.delete(i);
+        else selected.add(i);
+        updateSelectedList();
+        renderGrid();
+    });
+    gridEl.appendChild(cell);
+}
+}
+
+function updateSelectedList(){
+if(selected.size===0) selectedListEl.textContent='None';
+else selectedListEl.textContent=Array.from(selected).sort((a,b)=>a-b).map(fmt).join(', ');
+}
+
+clearSelectionBtn.addEventListener('click',()=>{
+selected.clear();
+updateSelectedList();
+renderGrid();
+});
+
+choosePayBtn.addEventListener('click',()=>{
+if(selected.size===0){ alert('Select at least one number.'); return; }
+payerNums.textContent = Array.from(selected).sort((a,b)=>a-b).map(fmt).join(', ');
+payerModal.classList.remove('hidden');
+});
+
+payerClose.addEventListener('click',()=>payerModal.classList.add('hidden'));
+cancelPayerBtn.addEventListener('click',()=>payerModal.classList.add('hidden'));
+
+confirmPayerBtn.addEventListener('click',()=>{
+const firstName = firstNameEl.value.trim();
+const lastName = lastNameEl.value.trim();
+const email = emailEl.value.trim();
+if(!firstName || !lastName || !email){ alert('Please fill First Name, Last Name, and Email.'); return; }
+const payMethod = document.querySelector('input[name="paymethod"]:checked').value;
+alert(`Reserved numbers: ${Array.from(selected).sort((a,b)=>a-b).map(fmt).join(', ')}\nPayment: ${payMethod}\nBuyer: ${firstName} ${lastName} ${email}\n\n(This is a demo - integrate backend to complete payment and email)`);
+selected.clear();
+updateSelectedList();
+payerModal.classList.add('hidden');
+renderGrid();
+});
+
+renderGrid();
+</script>
+
+</body>
+</html>
