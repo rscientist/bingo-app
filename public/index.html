@@ -5,22 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bingo 0-999</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; }
-  #grid { display: grid; grid-template-columns: repeat(20, 50px); gap: 5px; margin-bottom: 20px; }
-  .number { padding: 10px; border: 1px solid #ccc; text-align: center; cursor: pointer; }
-  .reserved { background-color: #f88; cursor: not-allowed; }
-  .available { background-color: #8f8; }
-  #admin-panel { border: 1px solid #ccc; padding: 10px; max-width: 400px; }
-  #admin-panel input { margin: 5px 0; width: 100%; padding: 5px; }
+  body { font-family: Arial, sans-serif; margin:0; padding:20px; background:#fff8f0; }
+  h1 { text-align:center; color:#ff6600; }
+  #top-options { display:flex; justify-content:center; margin-bottom:20px; gap:10px; }
+  button { padding:10px 20px; font-size:16px; cursor:pointer; border:none; border-radius:5px; }
+  #admin-btn { background:#555; color:white; }
+  #grid { display:grid; grid-template-columns:repeat(20,50px); gap:5px; justify-content:center; margin-bottom:20px; }
+  .number { padding:10px; border-radius:5px; text-align:center; cursor:pointer; font-weight:bold; }
+  .reserved { background-color:#ffcccc; cursor:not-allowed; }
+  .available { background-color:#ccffcc; }
+  #admin-panel { display:none; border:1px solid #ccc; padding:10px; max-width:400px; margin:auto; border-radius:5px; background:#fff3e0; }
+  #admin-panel input, #admin-panel button { margin:5px 0; width:100%; padding:5px; }
 </style>
 </head>
 <body>
 
 <h1>Bingo 0-999</h1>
+
+<div id="top-options">
+  <button id="pay-nequi">Pay with Nequi ($20 COP)</button>
+  <button id="pay-pix">Pay with Pix (R$30)</button>
+  <button id="pay-zelle">Pay with Zelle ($6 USD)</button>
+  <button id="admin-btn">Admin</button>
+</div>
+
 <div id="grid"></div>
 
-<h2>Admin Panel</h2>
+<!-- Admin Panel -->
 <div id="admin-panel">
+  <h3>Admin Panel</h3>
   <input type="number" id="block-number" placeholder="Number to block" min="0" max="999"/>
   <input type="text" id="block-note" placeholder="Note (e.g., cash payment)"/>
   <button id="block-btn">Block Number</button>
@@ -31,11 +44,12 @@
 const grid = document.getElementById('grid');
 const socket = io();
 
+// Render numbers
 function renderGrid(numbers) {
   grid.innerHTML = '';
   numbers.forEach(n => {
     const div = document.createElement('div');
-    div.className = 'number ' + (n.status === 'reserved' ? 'reserved' : 'available');
+    div.className = 'number ' + (n.status==='reserved'?'reserved':'available');
     div.textContent = n.number;
     grid.appendChild(div);
   });
@@ -49,31 +63,39 @@ async function loadNumbers() {
 }
 loadNumbers();
 
-// Listen for real-time updates
-socket.on('numbers:update', (updates) => {
-  loadNumbers(); // simple re-render on update
+// Real-time updates
+socket.on('numbers:update', () => loadNumbers());
+
+// Admin button
+document.getElementById('admin-btn').addEventListener('click', () => {
+  const pw = prompt('Enter admin password:');
+  if(pw==='Benjamin@2025!') {
+    document.getElementById('admin-panel').style.display='block';
+  } else alert('Wrong password');
 });
 
-// Admin panel block
+// Admin block
 document.getElementById('block-btn').addEventListener('click', async () => {
   const number = parseInt(document.getElementById('block-number').value);
   const note = document.getElementById('block-note').value;
-  if (isNaN(number) || number < 0 || number > 999) return alert('Enter a valid number 0-999');
-
-  const res = await fetch('/api/admin/block', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ number, note })
+  if(isNaN(number) || number<0 || number>999) return alert('Enter valid number 0-999');
+  const res = await fetch('/api/admin/block',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({number,note})
   });
-  if(res.ok){
+  if(res.ok) {
     alert('Number blocked successfully!');
-    document.getElementById('block-number').value = '';
-    document.getElementById('block-note').value = '';
+    document.getElementById('block-number').value='';
+    document.getElementById('block-note').value='';
     loadNumbers();
-  } else {
-    alert('Error blocking number');
-  }
+  } else alert('Error blocking number');
 });
+
+// Payment buttons (simulate payment for now)
+document.getElementById('pay-nequi').addEventListener('click',()=>alert('Redirect to Nequi payment $20'));
+document.getElementById('pay-pix').addEventListener('click',()=>alert('Redirect to Pix payment R$30'));
+document.getElementById('pay-zelle').addEventListener('click',()=>alert('Redirect to Zelle payment $6'));
 </script>
 </body>
 </html>
