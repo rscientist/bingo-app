@@ -7,32 +7,50 @@ const path = require('path');
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-let reservedNumbers = new Map();
+// Store reserved numbers
+let reservedNumbers = new Map(); // number -> { buyer, paymentMethod, expiresAt }
+// Store admin-blocked numbers
+let adminBlocked = new Map(); // number -> { note, blockedAt }
 
+// Get all numbers for frontend
 app.get('/api/numbers', (req,res)=>{
   const data = [];
   for(let i=0;i<=999;i++){
-    if(reservedNumbers.has(i)) data.push({ number:i,status:'reserved' });
+    if(reservedNumbers.has(i) || adminBlocked.has(i)) data.push({ number:i,status:'reserved' });
     else data.push({ number:i,status:'available' });
   }
   res.json(data);
 });
 
+// Reserve numbers (called when real payment is confirmed)
 app.post('/api/reserve',(req,res)=>{
   const { numbers, buyer, paymentMethod } = req.body;
-  const unavailable = numbers.filter(n=>reservedNumbers.has(n));
+  const unavailable = numbers.filter(n=>reservedNumbers.has(n) || adminBlocked.has(n));
   if(unavailable.length>0) return res.status(400).json({ unavailable });
 
-  const expiresAt = Date.now() + 20*60*1000; // 20 minutes
-  numbers.forEach(n=>reservedNumbers.set(n,{expiresAt,buyer,paymentMethod}));
-  io.emit('numbers:update',numbers.map(n=>({number:n,status:'reserved'})));
+  const expiresAt = Date.now() + 20*60*1000; // 20 min
+  numbers.forEach(n=>reservedNumbers.set(n,{ buyer, paymentMethod, expiresAt }));
+  io.emit('numbers:update',numbers.map(n=>({ number:n, status:'reserved' })));
 
-  res.json({
-    reservationId: Math.random().toString(36).slice(2,10),
-    reserved: numbers,
-    payment:{ provider:paymentMethod, amount:1, currency:'USD', qrData:'DEMO_QR' },
-    expiresAt
-  });
+  res.json({ reserved: numbers });
 });
 
-http.listen(process.env.PORT || 3000, ()=>console.log('Server running'));
+// Admin block number
+app.post('/api/admin/block', (req,res)=>{
+  const { number, note } = req.body;
+  if(number < 0 || number > 999) return res.status(400).json({ error:'Invalid number' });
+
+  adminBlocked.set(number,{ note, blockedAt: new Date() });
+  reservedNumbers.set(number,{ buyer:{ firstName:'ADMIN', lastName:'BLOCKED' }, paymentMethod:'CASH', expiresAt: Infinity });
+  io.emit('numbers:update', [{ number, status:'reserved' }]);
+  res.json({ ok:true });
+});
+
+// Optionally: get all blocked numbers for admin view
+app.get('/api/admin/blocked', (req,res)=>{
+  res.json(Array.from(adminBlocked.entries()));
+});
+
+// Start server
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, ()=>console.log(`Server running on port ${PORT}`));
